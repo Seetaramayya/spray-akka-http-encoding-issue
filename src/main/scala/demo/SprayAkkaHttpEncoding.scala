@@ -13,19 +13,27 @@ object SprayAkkaHttpEncoding extends App {
   implicit val ec = system.dispatcher
   implicit val timeout = Timeout(1.second)
   implicit val materializer = ActorMaterializer()
+  private val InitData = "é"
+  blockingAkkaHttpInsert(InitData)
 
-  // Inserting data without charset (UTF-8) is failing to read by spray client
-  Await.result(RiakAkkaHttpClient.put(Payload("é")), 1.second)
+  // You can observe data explosion in the riak database
+  (1 to 20).foreach { i =>
+    val sprayGetData: Model.Payload = Await.result(RiakSprayHttpClient.get(), 1.second)
+    val akkaHttpGetData: Model.Payload = Await.result(RiakAkkaHttpClient.get(), 1.second)
 
-  val sprayGetDataFuture: Future[Model.Payload] = RiakSprayHttpClient.get()
-  val akkaHttpGetDataFuture: Future[Model.Payload] = RiakAkkaHttpClient.get()
+    println(s"[Spray]    Attempt: $i, data: $sprayGetData")
+    println(s"[AkkaHttp] Attempt: $i, data: $akkaHttpGetData")
 
-  Future.sequence(List(sprayGetDataFuture, akkaHttpGetDataFuture)).foreach { data =>
-    println("-" * 40)
-    println(s"Spray data ${data.head}")
-    println(s"AkkaHttp data ${data.last}")
-    println("-" * 40)
-    system.terminate()
+    if ( i % 2 == 0 ) blockingSprayHttpInsert(sprayGetData.data) else blockingAkkaHttpInsert(akkaHttpGetData.data)
   }
+
+  private def blockingAkkaHttpInsert(data: String): Unit = {
+    // Inserting data without charset (UTF-8) is failing to read by spray client
+    Await.result(RiakAkkaHttpClient.put(Payload(data)), 1.second)
+  }
+
+  private def blockingSprayHttpInsert(data: String): Unit = Await.result(RiakSprayHttpClient.put(Payload(data)), 1.second)
+
+  system.terminate()
 
 }

@@ -26,7 +26,8 @@ object RiakAkkaHttpClient {
   def put(data: Payload)(implicit system: ActorSystem, mat: ActorMaterializer, timeout: Timeout, ec: ExecutionContext): Future[String] = {
     // Main fix is here: Spray expects UTF-8 charset in application/json but akka http does not specify
     val `application/json(UTF-8)` = ContentType(MediaTypes.`application/json`.withParams(Map("charset" -> "UTF-8")))
-    val entity: RequestEntity = HttpEntity(`application/json(UTF-8)`, data.toJson.compactPrint.getBytes)
+//    val entity: RequestEntity = HttpEntity(`application/json(UTF-8)`, data.toJson.compactPrint.getBytes)
+    val entity: RequestEntity = HttpEntity(ContentTypes.`application/json`, data.toJson.compactPrint.getBytes)
     val request = HttpRequest(PUT, uri, entity = entity)
     Http()
       .singleRequest(request)

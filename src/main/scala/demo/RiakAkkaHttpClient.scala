@@ -6,7 +6,7 @@ import akka.http.scaladsl.client.RequestBuilding.Get
 import akka.http.scaladsl.model.ContentTypes.`application/json`
 import akka.http.scaladsl.model.HttpMethods.PUT
 import akka.http.scaladsl.model.{ ContentType, _ }
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.{ Sink, Source }
 import akka.util.{ ByteString, Timeout }
 import demo.Model.Payload
@@ -18,7 +18,7 @@ object RiakAkkaHttpClient {
   // This is the content type which fixes in compatability
   val `application/json-UTF-8`: ContentType.WithFixedCharset = ContentType(MediaTypes.`application/json`.withParams(Map("charset" -> "UTF-8")))
 
-  def inMemoryData(dataBytes: Source[ByteString, Any])(implicit mat: ActorMaterializer, timeout: Timeout, ec: ExecutionContext): Future[String] = {
+  def inMemoryData(dataBytes: Source[ByteString, Any])(implicit mat: Materializer, timeout: Timeout, ec: ExecutionContext): Future[String] = {
     dataBytes.reduce(_ ++ _).runWith(Sink.head).map(_.utf8String)
   }
 
@@ -31,17 +31,15 @@ object RiakAkkaHttpClient {
    */
   def put(uri: String, data: Payload, contentType: ContentType = `application/json`)(
       implicit system: ActorSystem,
-      mat: ActorMaterializer,
+      mat: Materializer,
       timeout: Timeout,
-      ec: ExecutionContext): Future[String] = {
+      ec: ExecutionContext): Future[HttpResponse] = {
     val entity: RequestEntity = HttpEntity(contentType, data.toJson.compactPrint.getBytes)
 
-    Http()
-      .singleRequest(HttpRequest(PUT, uri, entity = entity))
-      .flatMap { response => inMemoryData(response.entity.dataBytes) }
+    Http().singleRequest(HttpRequest(PUT, uri, entity = entity))
   }
 
-  def get(uri: String)(implicit system: ActorSystem, mat: ActorMaterializer, timeout: Timeout, ec: ExecutionContext): Future[Payload] = {
+  def get(uri: String)(implicit system: ActorSystem, mat: Materializer, timeout: Timeout, ec: ExecutionContext): Future[Payload] = {
     Http()
       .singleRequest(Get(uri))
       .flatMap { response =>
